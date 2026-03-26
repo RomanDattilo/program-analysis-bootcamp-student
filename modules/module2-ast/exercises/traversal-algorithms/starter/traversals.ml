@@ -12,59 +12,124 @@
 
 open Shared_ast.Ast_types
 
-(** Helper: produce a string label for a single expression node.
-    Examples: IntLit(3), BoolLit(true), Var(x), BinOp(+), UnaryOp(-), Call(f) *)
-let label_of_expr (_e : expr) : string =
-  (* TODO: pattern match on the expression and return its label string *)
-  failwith "TODO"
+let string_of_op op =
+  match op with
+  | Add -> "+" | Sub -> "-" | Mul -> "*" | Div -> "/"
+  | Eq -> "==" | Neq -> "!=" | Lt -> "<" | Gt -> ">"
+  | Le -> "<=" | Ge -> ">=" | And -> "&&" | Or -> "||"
 
-(** Helper: produce a string label for a single statement node.
-    Examples: "Assign", "If", "While", "Return", "Print", "Block" *)
-let label_of_stmt (_s : stmt) : string =
-  (* TODO: pattern match on the statement and return its label string *)
-  failwith "TODO"
+let string_of_uop uop =
+  match uop with Neg -> "-" | Not -> "!"
 
-(** Pre-order depth-first traversal.
-    Visit the current node FIRST, then recurse into its children
-    left-to-right.
+let label_of_expr (e : expr) : string =
+  match e with
+  | IntLit n          -> "IntLit(" ^ string_of_int n ^ ")"
+  | BoolLit b         -> "BoolLit(" ^ string_of_bool b ^ ")"
+  | Var s             -> "Var(" ^ s ^ ")"
+  | BinOp (op, _, _)  -> "BinOp(" ^ string_of_op op ^ ")"
+  | UnaryOp (op, _)   -> "UnaryOp(" ^ string_of_uop op ^ ")"
+  | Call (name, _)    -> "Call(" ^ name ^ ")"
 
-    For example, on [Assign("x", BinOp(Add, IntLit 1, IntLit 2))]:
-      ["Assign"; "BinOp(+)"; "IntLit(1)"; "IntLit(2)"]
+let label_of_stmt (s : stmt) : string =
+  match s with
+  | Assign _  -> "Assign"
+  | If _      -> "If"
+  | While _   -> "While"
+  | Return _  -> "Return"
+  | Print _   -> "Print"
+  | Block _   -> "Block"
 
-    Hint: write a mutual recursion with helpers for expr and stmt lists. *)
-let pre_order (_stmts : stmt list) : string list =
-  (* TODO: implement pre-order DFS traversal *)
-  (* 1. Emit the label of the current node
-     2. Then recurse into children *)
-  failwith "TODO"
+let rec pre_order_expr (e : expr) : string list =
+  let lbl = [label_of_expr e] in
+  match e with
+  | IntLit _ | BoolLit _ | Var _ -> lbl
+  | BinOp (_, e1, e2) -> lbl @ pre_order_expr e1 @ pre_order_expr e2
+  | UnaryOp (_, e1)   -> lbl @ pre_order_expr e1
+  | Call (_, args)    -> lbl @ List.concat_map pre_order_expr args
 
-(** Post-order depth-first traversal.
-    Recurse into children FIRST, then visit the current node.
+and pre_order_stmt (s : stmt) : string list =
+  let lbl = [label_of_stmt s] in
+  match s with
+  | Assign (_, e)                 -> lbl @ pre_order_expr e
+  | If (cond, then_b, else_b)     ->
+      lbl @ pre_order_expr cond
+          @ pre_order_stmts then_b
+          @ pre_order_stmts else_b
+  | While (cond, body)            -> lbl @ pre_order_expr cond @ pre_order_stmts body
+  | Return None                   -> lbl
+  | Return (Some e)               -> lbl @ pre_order_expr e
+  | Print exprs                   -> lbl @ List.concat_map pre_order_expr exprs
+  | Block stmts                   -> lbl @ pre_order_stmts stmts
 
-    For example, on [Assign("x", BinOp(Add, IntLit 1, IntLit 2))]:
-      ["IntLit(1)"; "IntLit(2)"; "BinOp(+)"; "Assign"]
+and pre_order_stmts (stmts : stmt list) : string list =
+  List.concat_map pre_order_stmt stmts
 
-    Hint: same structure as pre_order but emit the label at the end. *)
-let post_order (_stmts : stmt list) : string list =
-  (* TODO: implement post-order DFS traversal *)
-  (* 1. Recurse into children first
-     2. Then emit the label of the current node *)
-  failwith "TODO"
+let pre_order (stmts : stmt list) : string list =
+  pre_order_stmts stmts
 
-(** Breadth-first (level-order) traversal.
-    Visit all nodes at depth d before any node at depth d+1.
+let rec post_order_expr (e : expr) : string list =
+  let lbl = [label_of_expr e] in
+  match e with
+  | IntLit _ | BoolLit _ | Var _ -> lbl
+  | BinOp (_, e1, e2) -> post_order_expr e1 @ post_order_expr e2 @ lbl
+  | UnaryOp (_, e1)   -> post_order_expr e1 @ lbl
+  | Call (_, args)    -> List.concat_map post_order_expr args @ lbl
 
-    For example, on [Assign("x", BinOp(Add, IntLit 1, IntLit 2))]:
-      ["Assign"; "BinOp(+)"; "IntLit(1)"; "IntLit(2)"]
-    (In this small case it happens to match pre-order, but differs on
-     deeper trees with multiple siblings.)
+and post_order_stmt (s : stmt) : string list =
+  let lbl = [label_of_stmt s] in
+  match s with
+  | Assign (_, e)                 -> post_order_expr e @ lbl
+  | If (cond, then_b, else_b)     ->
+      post_order_expr cond
+      @ post_order_stmts then_b
+      @ post_order_stmts else_b
+      @ lbl
+  | While (cond, body)            -> post_order_expr cond @ post_order_stmts body @ lbl
+  | Return None                   -> lbl
+  | Return (Some e)               -> post_order_expr e @ lbl
+  | Print exprs                   -> List.concat_map post_order_expr exprs @ lbl
+  | Block stmts                   -> post_order_stmts stmts @ lbl
 
-    Hint: use the OCaml Queue module.
-      1. Seed the queue with all top-level stmts.
-      2. Dequeue a node, emit its label, enqueue its children.
-      3. Repeat until the queue is empty.
-    You will need a sum type or two queues to handle both stmt and expr
-    nodes uniformly. *)
-let bfs (_stmts : stmt list) : string list =
-  (* TODO: implement breadth-first traversal using Queue *)
-  failwith "TODO"
+and post_order_stmts (stmts : stmt list) : string list =
+  List.concat_map post_order_stmt stmts
+
+let post_order (stmts : stmt list) : string list =
+  post_order_stmts stmts
+
+type node = Stmt_node of stmt | Expr_node of expr
+
+let children_of_node (n : node) : node list =
+  match n with
+  | Expr_node e -> (match e with
+    | IntLit _ | BoolLit _ | Var _ -> []
+    | BinOp (_, e1, e2)  -> [Expr_node e1; Expr_node e2]
+    | UnaryOp (_, e1)    -> [Expr_node e1]
+    | Call (_, args)     -> List.map (fun a -> Expr_node a) args)
+  | Stmt_node s -> (match s with
+    | Assign (_, e)             -> [Expr_node e]
+    | If (cond, then_b, else_b) ->
+        [Expr_node cond]
+        @ List.map (fun s -> Stmt_node s) then_b
+        @ List.map (fun s -> Stmt_node s) else_b
+    | While (cond, body)        ->
+        Expr_node cond :: List.map (fun s -> Stmt_node s) body
+    | Return None               -> []
+    | Return (Some e)           -> [Expr_node e]
+    | Print exprs               -> List.map (fun e -> Expr_node e) exprs
+    | Block stmts               -> List.map (fun s -> Stmt_node s) stmts)
+
+let label_of_node (n : node) : string =
+  match n with
+  | Expr_node e -> label_of_expr e
+  | Stmt_node s -> label_of_stmt s
+
+let bfs (stmts : stmt list) : string list =
+  let q = Queue.create () in
+  List.iter (fun s -> Queue.push (Stmt_node s) q) stmts;
+  let result = ref [] in
+  while not (Queue.is_empty q) do
+    let node = Queue.pop q in
+    result := !result @ [label_of_node node];
+    List.iter (fun child -> Queue.push child q) (children_of_node node)
+  done;
+  !result
