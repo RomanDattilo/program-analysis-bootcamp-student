@@ -3,18 +3,6 @@
     This module implements the classic worklist-based fixpoint algorithm
     that underlies most dataflow analyses (reaching definitions, live
     variables, available expressions, etc.).
-
-    The solver is parameterized by:
-    - [direction]: whether information flows forward or backward
-    - [init]: initial lattice value for every block
-    - [merge]: how to combine values from multiple predecessors/successors
-    - [transfer]: how a single basic block transforms a lattice value
-    - [equal]: when to stop iterating (fixpoint test)
-
-    The CFG is given as a list of
-      (block_label, predecessor_labels, successor_labels)
-    triples. The solver returns (block_label, in_value, out_value)
-    for every block once a fixpoint is reached.
 *)
 
 type direction = Forward | Backward
@@ -29,28 +17,70 @@ type 'a analysis = {
 
 module StringMap = Map.Make (String)
 
-(** [solve analysis cfg] runs the iterative fixpoint algorithm.
-
-    @param analysis  the analysis configuration (direction, transfer, etc.)
-    @param cfg       list of (block_label, predecessors, successors)
-    @return          list of (block_label, in_value, out_value) at fixpoint
-
-    Algorithm sketch (forward case):
-    {v
-      1. Initialize IN[B] = OUT[B] = analysis.init for every block B.
-      2. Repeat until nothing changes:
-         For each block B:
-           a. IN[B]  = merge over all predecessors P of B: OUT[P]
-           b. OUT[B] = transfer(B, IN[B])
-      3. Return the final IN/OUT for each block.
-    v}
-
-    For the backward case, swap the roles of IN/OUT and
-    predecessors/successors.
-
-    TODO: Implement this function. It currently raises [Failure "TODO"].
-*)
-let solve (_analysis : 'a analysis)
-    (_cfg : (string * string list * string list) list)
+let solve (analysis : 'a analysis)
+    (cfg : (string * string list * string list) list)
     : (string * 'a * 'a) list =
-  failwith "TODO: implement iterative fixpoint solver"
+  (* Initialize IN and OUT for every block *)
+  let init_map =
+    List.fold_left
+      (fun m (label, _, _) -> StringMap.add label analysis.init m)
+      StringMap.empty
+      cfg
+  in
+  let in_map  = ref init_map in
+  let out_map = ref init_map in
+
+  let get map key =
+    match StringMap.find_opt key map with
+    | Some v -> v
+    | None -> analysis.init
+  in
+
+  let changed = ref true in
+  while !changed do
+    changed := false;
+
+    List.iter
+      (fun (label, preds, succs) ->
+        let old_in  = get !in_map label in
+        let old_out = get !out_map label in
+
+        let new_in, new_out =
+          match analysis.direction with
+          | Forward ->
+              let in_b =
+                List.fold_left
+                  (fun acc p -> analysis.merge acc (get !out_map p))
+                  analysis.init
+                  preds
+              in
+              let out_b = analysis.transfer label in_b in
+              (in_b, out_b)
+
+          | Backward ->
+              let out_b =
+                List.fold_left
+                  (fun acc s -> analysis.merge acc (get !in_map s))
+                  analysis.init
+                  succs
+              in
+              let in_b = analysis.transfer label out_b in
+              (in_b, out_b)
+        in
+
+        if not (analysis.equal old_in new_in) then begin
+          changed := true;
+          in_map := StringMap.add label new_in !in_map
+        end;
+
+        if not (analysis.equal old_out new_out) then begin
+          changed := true;
+          out_map := StringMap.add label new_out !out_map
+        end)
+      cfg
+  done;
+
+  List.map
+    (fun (label, _, _) ->
+      (label, get !in_map label, get !out_map label))
+    cfg
