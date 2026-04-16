@@ -83,4 +83,8 @@ let solve (analysis : 'a analysis)
   List.map
     (fun (label, _, _) ->
       (label, get !in_map label, get !out_map label))
+<<<<<<< HEAD
     cfg
+=======
+    cfg
+>>>>>>> 86023823cd33144221941d7118f817def1cd27fc

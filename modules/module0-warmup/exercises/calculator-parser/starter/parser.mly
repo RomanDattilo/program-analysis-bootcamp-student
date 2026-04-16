@@ -75,4 +75,13 @@ atom:
   | id = IDENT                 { Var id }
   | LPAREN e = expr RPAREN     { e }
   | MINUS a = atom %prec UMINUS { Neg a }
+<<<<<<< HEAD
+=======
+  ;
+
+
+atom:
+  | n = INT                    { Num n }
+  (* EXERCISE: add rules for IDENT, LPAREN/RPAREN, and unary MINUS *)
+>>>>>>> 86023823cd33144221941d7118f817def1cd27fc
   ;

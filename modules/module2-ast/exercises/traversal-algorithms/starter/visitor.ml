@@ -61,4 +61,8 @@ let evaluate (e : expr) : int option =
         Option.bind (eval e1) (fun v -> Some (-v))
     | _ -> None
   in
+<<<<<<< HEAD
   eval e
+=======
+  eval e
+>>>>>>> 86023823cd33144221941d7118f817def1cd27fc

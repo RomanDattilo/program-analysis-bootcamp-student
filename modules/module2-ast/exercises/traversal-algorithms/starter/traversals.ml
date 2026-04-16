@@ -132,4 +132,8 @@ let bfs (stmts : stmt list) : string list =
     result := !result @ [label_of_node node];
     List.iter (fun child -> Queue.push child q) (children_of_node node)
   done;
+<<<<<<< HEAD
   !result
+=======
+  !result
+>>>>>>> 86023823cd33144221941d7118f817def1cd27fc
