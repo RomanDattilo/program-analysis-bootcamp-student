@@ -19,33 +19,28 @@
 
 (** [double_all xs] returns a new list with every element doubled.
     Example: double_all [1; 2; 3] = [2; 4; 6] *)
-let double_all (_xs : int list) : int list =
-  (* EXERCISE: use List.map *)
-  failwith "TODO: double_all"
+let double_all xs =
+  List.map (fun x -> x * 2) xs
 
 (** [keep_positive xs] returns only the positive elements.
     Example: keep_positive [-1; 3; 0; 5; -2] = [3; 5] *)
-let keep_positive (_xs : int list) : int list =
-  (* EXERCISE: use List.filter *)
-  failwith "TODO: keep_positive"
+let keep_positive xs =
+  List.filter (fun x -> x > 0) xs
 
 (** [sum xs] returns the sum of all elements.
     Example: sum [1; 2; 3; 4] = 10 *)
-let sum (_xs : int list) : int =
-  (* EXERCISE: use List.fold_left *)
-  failwith "TODO: sum"
+let sum xs =
+  List.fold_left (fun acc x -> acc + x) 0 xs
 
 (** [has_duplicates xs] returns true if any string appears more
     than once in [xs].
     Hint: sort first, then check adjacent elements. *)
-let has_duplicates (xs : string list) : bool =
+let has_duplicates xs =
   let sorted = List.sort String.compare xs in
-  let check = function
+  let rec check = function
     | [] | [_] -> false
-    | _a :: _b :: _rest ->
-      (* EXERCISE: if a = b, return true; else recurse on (b :: rest)
-         Hint: add [rec] to check when ready *)
-      failwith "TODO: has_duplicates"
+    | a :: b :: rest ->
+        if a = b then true else check (b :: rest)
   in
   check sorted
 
@@ -64,20 +59,17 @@ type assignment = {
 }
 
 (** [make_assign name value line] creates an assignment record. *)
-let make_assign (_name : string) (_value : int) (_line : int) : assignment =
-  (* EXERCISE: construct the record *)
-  failwith "TODO: make_assign"
+let make_assign name value line =
+  { var_name = name; value; line }
 
 (** [format_assign a] returns "x = 5 (line 3)". *)
-let format_assign (_a : assignment) : string =
-  (* EXERCISE: use Printf.sprintf and record field access *)
-  failwith "TODO: format_assign"
+let format_assign a =
+  Printf.sprintf "%s = %d (line %d)" a.var_name a.value a.line
 
 (** [increment_value a n] returns a new record with value increased
     by [n]. Records are immutable -- use { a with ... } syntax. *)
-let increment_value (_a : assignment) (_n : int) : assignment =
-  (* EXERCISE: use the { ... with ... } record update syntax *)
-  failwith "TODO: increment_value"
+let increment_value a n =
+  { a with value = a.value + n }
 
 (* ----------------------------------------------------------------
    Part 3: StringMap -- Variable Environments
@@ -92,23 +84,26 @@ module StringMap = Map.Make(String)
     pairs. Later pairs overwrite earlier ones if names conflict.
 
     Example: build_env [("x", 1); ("y", 2)] builds {x->1, y->2} *)
-let build_env (_pairs : (string * int) list) : int StringMap.t =
-  (* EXERCISE: use List.fold_left and StringMap.add *)
-  failwith "TODO: build_env"
+let build_env pairs =
+  List.fold_left
+    (fun env (name, value) -> StringMap.add name value env)
+    StringMap.empty
+    pairs
 
 (** [lookup_var env name] returns Some value if [name] is in [env],
     or None otherwise. *)
-let lookup_var (_env : int StringMap.t) (_name : string) : int option =
-  (* EXERCISE: use StringMap.find_opt *)
-  failwith "TODO: lookup_var"
+let lookup_var env name =
+  StringMap.find_opt name env
 
 (** [all_vars env] returns a sorted list of all variable names in
     the environment.
 
     Hint: StringMap.bindings returns a (key * value) list. *)
-let all_vars (_env : int StringMap.t) : string list =
-  (* EXERCISE: extract keys from StringMap.bindings *)
-  failwith "TODO: all_vars"
+let all_vars env =
+  env
+  |> StringMap.bindings
+  |> List.map fst
+  |> List.sort String.compare
 
 (* ----------------------------------------------------------------
    Part 4: StringSet -- Tracking Variable Sets
@@ -121,14 +116,15 @@ module StringSet = Set.Make(String)
 
 (** [assigned_vars assignments] returns a StringSet of all variable
     names that appear in the assignment list. *)
-let assigned_vars (_assignments : assignment list) : StringSet.t =
-  (* EXERCISE: use List.fold_left and StringSet.add *)
-  failwith "TODO: assigned_vars"
+let assigned_vars assignments =
+  List.fold_left
+    (fun set a -> StringSet.add a.var_name set)
+    StringSet.empty
+    assignments
 
 (** [common_vars s1 s2] returns the intersection of two StringSets. *)
-let common_vars (_s1 : StringSet.t) (_s2 : StringSet.t) : StringSet.t =
-  (* EXERCISE: use StringSet.inter *)
-  failwith "TODO: common_vars"
+let common_vars s1 s2 =
+  StringSet.inter s1 s2
 
 (* ----------------------------------------------------------------
    Part 5: Mutable State (ref)
@@ -149,9 +145,12 @@ let common_vars (_s1 : StringSet.t) (_s2 : StringSet.t) : StringSet.t =
 
     Hint: create a ref inside make_counter and return a closure
     that increments and returns its value. *)
-let make_counter () : unit -> int =
-  (* EXERCISE: use a ref cell *)
-  failwith "TODO: make_counter"
+let make_counter () =
+  let r = ref 0 in
+  fun () ->
+    let v = !r in
+    r := v + 1;
+    v
 
 (* ================================================================
    Main -- runs all exercises and prints results.
